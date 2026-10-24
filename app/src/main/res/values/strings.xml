@@ -29,4 +29,13 @@
     <string name="suspended">Suspended</string>
     <string name="threshold_c">Threshold:</string>
     <string name="m_rotate">On rotate</string>
+    <string name="add_point">Add point</string>
+    <string name="remove_point">Remove last point</string>
+    <string name="point_index">%1$d &gt;</string>
+    <string name="invalid_number">Please fill in all fields with valid numbers</string>
+    <string name="brightness_range">Point %1$d: brightness must be between 0 and 255</string>
+    <string name="duplicate_lux">Two points share the sensor value %1$d. Every sensor value may be used only once</string>
+    <string name="min_points">At least %1$d points are required</string>
+    <string name="max_points">At most %1$d points are allowed</string>
+    <string name="settings_saved">Settings saved</string>
 </resources>
