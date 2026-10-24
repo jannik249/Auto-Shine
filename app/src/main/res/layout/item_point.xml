@@ -44,5 +44,4 @@
         android:maxLength="3"
         android:singleLine="true"
         android:text="" />
-</LinearLay
-  out>
+</LinearLayout>
