@@ -52,7 +52,7 @@ public class ShineControl implements SensorEventListener {
 	public void onSensorChanged(SensorEvent event) {
 		if (event.sensor.getType() == Sensor.TYPE_LIGHT) {
 			lux = event.values[0];
-			setBrightness((int) lux);
+			setBrightness(lux);
 		}
 	}
 
@@ -121,37 +121,8 @@ public class ShineControl implements SensorEventListener {
 		onListen = false;
 	}
 
-	private void setBrightness(int lux) {
-		float x1, y1, x2, y2;
-		int brightness;
-		if (lux <= sett.l1)
-			brightness = sett.b1;
-		else if (lux > sett.l4)
-			brightness = sett.b4;
-		else {
-			x1 = sett.l3;
-			x2 = sett.l4;
-			y1 = sett.b3;
-			y2 = sett.b4;
-
-			if (lux <= sett.l2) {
-				x1 = sett.l1;
-				x2 = sett.l2;
-				y1 = sett.b1;
-				y2 = sett.b2;
-			} else if (lux <= sett.l3) {
-				x1 = sett.l2;
-				x2 = sett.l3;
-				y1 = sett.b2;
-				y2 = sett.b3;
-			}
-
-			float div = lux - x1;
-			float xlen = x2 - x1;
-			float ylen = y2 - y1;
-			float coef = div / xlen;
-			brightness = (int) (y1 + ylen * coef);
-		}
+	private void setBrightness(float value) {
+		int brightness = BrightnessCurve.compute(sett.lux, sett.bright, sett.count, value);
 
 		int currentBrightness = Settings.System.getInt(cResolver, Settings.System.SCREEN_BRIGHTNESS, 0);
 		tempBrightness = brightness;
