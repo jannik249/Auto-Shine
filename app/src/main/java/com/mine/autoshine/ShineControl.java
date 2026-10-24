@@ -9,6 +9,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 
 import android.os.Handler;
+import android.os.PowerManager;
 
 import android.content.ContentResolver;
 import android.provider.Settings;
@@ -27,6 +28,25 @@ public class ShineControl implements SensorEventListener {
 
 	private final long pause = 1000;
 
+	// Some systems silently stop delivering sensor events to background apps.
+	// Re-registering the listener regularly and holding a wake lock while listening works around that.
+	private static final long REFRESH_INTERVAL = 20000;
+	private static final long WAKE_LOCK_TIMEOUT = 5 * 60 * 1000;
+	private final PowerManager.WakeLock wakeLock;
+
+	private final Runnable refresher = new Runnable() {
+		@Override
+		public void run() {
+			if (!onListen)
+				return;
+
+			sMgr.unregisterListener(ShineControl.this);
+			sMgr.registerListener(ShineControl.this, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
+			acquireWakeLock();
+			delayer.postDelayed(this, REFRESH_INTERVAL);
+		}
+	};
+
 	private boolean onListen = false;
 	private boolean landscape = false;
 
@@ -40,6 +60,10 @@ public class ShineControl implements SensorEventListener {
 		lightSensor = sMgr.getDefaultSensor(Sensor.TYPE_LIGHT);
 
 		mContext = context;
+
+		PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+		wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "autoshine:listen");
+		wakeLock.setReferenceCounted(false);
 		telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
 	}
 
@@ -108,6 +132,10 @@ public class ShineControl implements SensorEventListener {
 		if (!onListen) {
 			sMgr.registerListener(this, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
 			onListen = true;
+
+			acquireWakeLock();
+			delayer.removeCallbacks(refresher);
+			delayer.postDelayed(refresher, REFRESH_INTERVAL);
 		}
 
 		scheduleSuspend();
@@ -119,6 +147,22 @@ public class ShineControl implements SensorEventListener {
 
 		delayer.removeCallbacksAndMessages(null);
 		onListen = false;
+		releaseWakeLock();
+	}
+
+	private void acquireWakeLock() {
+		try {
+			wakeLock.acquire(WAKE_LOCK_TIMEOUT);
+		} catch (Exception ignored) {
+		}
+	}
+
+	private void releaseWakeLock() {
+		try {
+			if (wakeLock.isHeld())
+				wakeLock.release();
+		} catch (Exception ignored) {
+		}
 	}
 
 	private void setBrightness(float value) {
