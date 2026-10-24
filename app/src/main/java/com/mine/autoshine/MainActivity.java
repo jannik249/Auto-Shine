@@ -18,13 +18,14 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.*;
 
+import java.util.Arrays;
+
 public class MainActivity extends Activity {
 
 	private Button btnStart;
 	private TextView tvState;
 
-	private EditText etSensor1, etSensor2, etSensor3, etSensor4;
-	private EditText etBrightness1, etBrightness2, etBrightness3, etBrightness4;
+	private LinearLayout llPoints;
 	private EditText etThreshold;
 
 	private PowerManager powerMan;
@@ -91,35 +92,42 @@ public class MainActivity extends Activity {
 			}
 		});
 
-		etSensor1 = findViewById(R.id.et_sensor_value_1);
-		etSensor2 = findViewById(R.id.et_sensor_value_2);
-		etSensor3 = findViewById(R.id.et_sensor_value_3);
-		etSensor4 = findViewById(R.id.et_sensor_value_4);
-
-		etBrightness1 = findViewById(R.id.et_brightness_value_1);
-		etBrightness2 = findViewById(R.id.et_brightness_value_2);
-		etBrightness3 = findViewById(R.id.et_brightness_value_3);
-		etBrightness4 = findViewById(R.id.et_brightness_value_4);
-
+		llPoints = findViewById(R.id.ll_points);
 		etThreshold = findViewById(R.id.et_threshold);
 
 		refillCollapsibleSettings();
 
-		Button btnSave = findViewById(R.id.btn_save_settings);
-		btnSave.setOnClickListener(arg0 -> {
-			sett.l1 = Integer.parseInt(etSensor1.getText().toString());
-			sett.l2 = Integer.parseInt(etSensor2.getText().toString());
-			sett.l3 = Integer.parseInt(etSensor3.getText().toString());
-			sett.l4 = Integer.parseInt(etSensor4.getText().toString());
-			sett.b1 = Integer.parseInt(etBrightness1.getText().toString());
-			sett.b2 = Integer.parseInt(etBrightness2.getText().toString());
-			sett.b3 = Integer.parseInt(etBrightness3.getText().toString());
-			sett.b4 = Integer.parseInt(etBrightness4.getText().toString());
-			sett.threshold = Integer.parseInt(etThreshold.getText().toString());
+		Button btnAddPoint = findViewById(R.id.btn_add_point);
+		btnAddPoint.setOnClickListener(arg0 -> {
+			int n = llPoints.getChildCount();
+			if (n >= MySettings.MAX_POINTS) {
+				Toast.makeText(this, getString(R.string.max_points, MySettings.MAX_POINTS), Toast.LENGTH_SHORT).show();
+				return;
+			}
 
-			sett.save();
-			sendBroadcastToService(Constants.SERVICE_INTENT_PAYLOAD_SET);
+			// suggest a continuation of the curve: double the last sensor value, keep the brightness
+			int lastLux = 10;
+			int lastBright = 127;
+			if (n > 0) {
+				View last = llPoints.getChildAt(n - 1);
+				lastLux = parseOr((EditText) last.findViewById(R.id.et_point_lux), lastLux);
+				lastBright = parseOr((EditText) last.findViewById(R.id.et_point_brightness), lastBright);
+			}
+			addPointRow(Math.min(lastLux * 2, 9999999), Math.min(lastBright, 255));
 		});
+
+		Button btnRemovePoint = findViewById(R.id.btn_remove_point);
+		btnRemovePoint.setOnClickListener(arg0 -> {
+			int n = llPoints.getChildCount();
+			if (n <= MySettings.MIN_POINTS) {
+				Toast.makeText(this, getString(R.string.min_points, MySettings.MIN_POINTS), Toast.LENGTH_SHORT).show();
+				return;
+			}
+			llPoints.removeViewAt(n - 1);
+		});
+
+		Button btnSave = findViewById(R.id.btn_save_settings);
+		btnSave.setOnClickListener(arg0 -> saveSettings());
 
 		CheckBox chWRotate = findViewById(R.id.ch_work_rotate);
 		chWRotate.setChecked(sett.rotate);
@@ -307,16 +315,87 @@ public class MainActivity extends Activity {
 	}
 
 	private void refillCollapsibleSettings() {
-		etSensor1.setText(String.valueOf(sett.l1));
-		etSensor2.setText(String.valueOf(sett.l2));
-		etSensor3.setText(String.valueOf(sett.l3));
-		etSensor4.setText(String.valueOf(sett.l4));
-
-		etBrightness1.setText(String.valueOf(sett.b1));
-		etBrightness2.setText(String.valueOf(sett.b2));
-		etBrightness3.setText(String.valueOf(sett.b3));
-		etBrightness4.setText(String.valueOf(sett.b4));
+		llPoints.removeAllViews();
+		for (int i = 0; i < sett.count; i++) {
+			addPointRow(sett.lux[i], sett.bright[i]);
+		}
 
 		etThreshold.setText(String.valueOf(sett.threshold));
+	}
+
+	private void addPointRow(int lux, int bright) {
+		View row = getLayoutInflater().inflate(R.layout.item_point, llPoints, false);
+		((TextView) row.findViewById(R.id.tv_point_index))
+				.setText(getString(R.string.point_index, llPoints.getChildCount() + 1));
+		((EditText) row.findViewById(R.id.et_point_lux)).setText(String.valueOf(lux));
+		((EditText) row.findViewById(R.id.et_point_brightness)).setText(String.valueOf(bright));
+		llPoints.addView(row);
+	}
+
+	private static int parseOr(EditText et, int fallback) {
+		try {
+			return Integer.parseInt(et.getText().toString().trim());
+		} catch (NumberFormatException e) {
+			return fallback;
+		}
+	}
+
+	private void saveSettings() {
+		int n = llPoints.getChildCount();
+		final int[] l = new int[n];
+		final int[] b = new int[n];
+		int threshold;
+
+		try {
+			for (int i = 0; i < n; i++) {
+				View row = llPoints.getChildAt(i);
+				l[i] = Integer.parseInt(((EditText) row.findViewById(R.id.et_point_lux)).getText().toString().trim());
+				b[i] = Integer.parseInt(((EditText) row.findViewById(R.id.et_point_brightness)).getText().toString().trim());
+			}
+			threshold = Integer.parseInt(etThreshold.getText().toString().trim());
+		} catch (NumberFormatException e) {
+			Toast.makeText(this, R.string.invalid_number, Toast.LENGTH_LONG).show();
+			return;
+		}
+
+		if (n < MySettings.MIN_POINTS) {
+			Toast.makeText(this, getString(R.string.min_points, MySettings.MIN_POINTS), Toast.LENGTH_LONG).show();
+			return;
+		}
+
+		for (int i = 0; i < n; i++) {
+			if (b[i] < 0 || b[i] > 255) {
+				Toast.makeText(this, getString(R.string.brightness_range, i + 1), Toast.LENGTH_LONG).show();
+				return;
+			}
+		}
+
+		// order the points by sensor value, so they can be entered in any order
+		Integer[] order = new Integer[n];
+		for (int i = 0; i < n; i++)
+			order[i] = i;
+		Arrays.sort(order, (x, y) -> Integer.compare(l[x], l[y]));
+
+		int[] sortedLux = new int[n];
+		int[] sortedBright = new int[n];
+		for (int i = 0; i < n; i++) {
+			sortedLux[i] = l[order[i]];
+			sortedBright[i] = b[order[i]];
+			if (i > 0 && sortedLux[i] == sortedLux[i - 1]) {
+				Toast.makeText(this, getString(R.string.duplicate_lux, sortedLux[i]), Toast.LENGTH_LONG).show();
+				return;
+			}
+		}
+
+		sett.count = n;
+		System.arraycopy(sortedLux, 0, sett.lux, 0, n);
+		System.arraycopy(sortedBright, 0, sett.bright, 0, n);
+		sett.threshold = threshold;
+
+		sett.save();
+		sendBroadcastToService(Constants.SERVICE_INTENT_PAYLOAD_SET);
+
+		refillCollapsibleSettings();
+		Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show();
 	}
 }
