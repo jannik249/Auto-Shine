@@ -26,7 +26,7 @@ public class MainActivity extends Activity {
 	private TextView tvState;
 
 	private LinearLayout llPoints;
-	private EditText etThreshold;
+	private EditText etThreshold, etLuxPercent, etHoldMs;
 
 	private PowerManager powerMan;
 	private MySettings sett;
@@ -94,6 +94,8 @@ public class MainActivity extends Activity {
 
 		llPoints = findViewById(R.id.ll_points);
 		etThreshold = findViewById(R.id.et_threshold);
+		etLuxPercent = findViewById(R.id.et_lux_percent);
+		etHoldMs = findViewById(R.id.et_hold_ms);
 
 		refillCollapsibleSettings();
 
@@ -321,6 +323,8 @@ public class MainActivity extends Activity {
 		}
 
 		etThreshold.setText(String.valueOf(sett.threshold));
+		etLuxPercent.setText(String.valueOf(sett.luxPercent));
+		etHoldMs.setText(String.valueOf(sett.holdMs));
 	}
 
 	private void addPointRow(int lux, int bright) {
@@ -344,7 +348,7 @@ public class MainActivity extends Activity {
 		int n = llPoints.getChildCount();
 		final int[] l = new int[n];
 		final int[] b = new int[n];
-		int threshold;
+		int threshold, luxPercent, holdMs;
 
 		try {
 			for (int i = 0; i < n; i++) {
@@ -353,6 +357,8 @@ public class MainActivity extends Activity {
 				b[i] = Integer.parseInt(((EditText) row.findViewById(R.id.et_point_brightness)).getText().toString().trim());
 			}
 			threshold = Integer.parseInt(etThreshold.getText().toString().trim());
+			luxPercent = Integer.parseInt(etLuxPercent.getText().toString().trim());
+			holdMs = Integer.parseInt(etHoldMs.getText().toString().trim());
 		} catch (NumberFormatException e) {
 			Toast.makeText(this, R.string.invalid_number, Toast.LENGTH_LONG).show();
 			return;
@@ -391,6 +397,8 @@ public class MainActivity extends Activity {
 		System.arraycopy(sortedLux, 0, sett.lux, 0, n);
 		System.arraycopy(sortedBright, 0, sett.bright, 0, n);
 		sett.threshold = threshold;
+		sett.luxPercent = luxPercent;
+		sett.holdMs = holdMs;
 
 		sett.save();
 		sendBroadcastToService(Constants.SERVICE_INTENT_PAYLOAD_SET);
