@@ -142,6 +142,9 @@ public class ShineControl implements SensorEventListener {
 	}
 
 	public void startListening(boolean onRotate) {
+		if (!sett.enabled)
+			return;
+
 		if ((sett.mode == Constants.WORK_MODE_UNLOCK) && !sett.rotate && onRotate)
 			return;
 
@@ -206,6 +209,13 @@ public class ShineControl implements SensorEventListener {
 		tempBrightness = brightness;
 		if (Math.abs(currentBrightness - brightness) > sett.threshold) {
 			Settings.System.putInt(cResolver, Settings.System.SCREEN_BRIGHTNESS, brightness);
+
+			// Some systems only update their brightness slider from the float setting
+			try {
+				float f = Math.max(0f, Math.min(1f, (brightness - 1) / 254f));
+				Settings.System.putFloat(cResolver, "screen_brightness_float", f);
+			} catch (Exception ignored) {
+			}
 		}
 
 	}
@@ -220,7 +230,24 @@ public class ShineControl implements SensorEventListener {
 		landscape = land;
 	}
 
+	public boolean isEnabled() {
+		return sett.enabled;
+	}
+
+	public void setEnabled(boolean enabled) {
+		sett.enabled = enabled;
+		sett.saveEnabled();
+
+		if (enabled)
+			onScreenUnlock();
+		else
+			stopListening();
+	}
+
 	public void onScreenUnlock() {
+		if (!sett.enabled)
+			return;
+
 		Settings.System.putInt(cResolver, Settings.System.SCREEN_BRIGHTNESS_MODE,
 				Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
 
