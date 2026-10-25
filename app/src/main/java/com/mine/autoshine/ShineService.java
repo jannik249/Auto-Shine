@@ -39,12 +39,7 @@ public class ShineService extends Service {
 			}
 
 			if (intent.getIntExtra(Constants.SERVICE_INTENT_EXTRA_TAP, -1) == 0) {
-				if (shiner.getOnListen()) {
-					shiner.stopListening();
-					Toast.makeText(context, getResources().getString(R.string.suspended), Toast.LENGTH_SHORT).show();
-				} else {
-					shiner.startListening(false);
-				}
+				toggleEnabled();
 			}
 		}
 	};
@@ -74,6 +69,17 @@ public class ShineService extends Service {
 		ShineService getService() {
 			return ShineService.this;
 		}
+	}
+
+	public boolean isEnabled() {
+		return shiner.isEnabled();
+	}
+
+	// switches the automatic brightness on or off until it is switched back
+	public void toggleEnabled() {
+		boolean enable = !shiner.isEnabled();
+		shiner.setEnabled(enable);
+		Toast.makeText(this, enable ? R.string.auto_on : R.string.auto_off, Toast.LENGTH_SHORT).show();
 	}
 
 	public int getState() {
