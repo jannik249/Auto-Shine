@@ -42,4 +42,5 @@
     <string name="min_points">At least %1$d points are required</string>
     <string name="max_points">At most %1$d points are allowed</string>
     <string name="settings_saved">Settings saved</string>
+    <string name="accessibility_description">Only keeps Auto Shine running in the background so that the brightness control is not stopped by the system. It does not read or change anything on the screen.</string>
 </resources>
