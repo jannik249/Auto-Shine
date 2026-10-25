@@ -10,6 +10,7 @@ import android.hardware.SensorManager;
 
 import android.os.Handler;
 import android.os.PowerManager;
+import android.os.SystemClock;
 
 import android.content.ContentResolver;
 import android.provider.Settings;
@@ -47,6 +48,21 @@ public class ShineControl implements SensorEventListener {
 		}
 	};
 
+	private final LuxFilter luxFilter = new LuxFilter();
+	private boolean holdCheckPosted = false;
+
+	// fires when the hold time is over and checks whether the light value stayed beyond the limit
+	private final Runnable holdCheck = new Runnable() {
+		@Override
+		public void run() {
+			holdCheckPosted = false;
+			if (!onListen)
+				return;
+
+			handleLux(lux);
+		}
+	};
+
 	private boolean onListen = false;
 	private boolean landscape = false;
 
@@ -76,7 +92,7 @@ public class ShineControl implements SensorEventListener {
 	public void onSensorChanged(SensorEvent event) {
 		if (event.sensor.getType() == Sensor.TYPE_LIGHT) {
 			lux = event.values[0];
-			setBrightness(lux);
+			handleLux(lux);
 		}
 	}
 
@@ -130,6 +146,8 @@ public class ShineControl implements SensorEventListener {
 			return;
 
 		if (!onListen) {
+			luxFilter.reset();
+			holdCheckPosted = false;
 			sMgr.registerListener(this, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
 			onListen = true;
 
@@ -146,6 +164,7 @@ public class ShineControl implements SensorEventListener {
 			sMgr.unregisterListener(this);
 
 		delayer.removeCallbacksAndMessages(null);
+		holdCheckPosted = false;
 		onListen = false;
 		releaseWakeLock();
 	}
@@ -162,6 +181,21 @@ public class ShineControl implements SensorEventListener {
 			if (wakeLock.isHeld())
 				wakeLock.release();
 		} catch (Exception ignored) {
+		}
+	}
+
+	private void handleLux(float value) {
+		long now = SystemClock.elapsedRealtime();
+
+		if (luxFilter.onValue(value, now, sett.luxPercent, sett.holdMs)) {
+			setBrightness(value);
+			return;
+		}
+
+		// the sensor only reports changes, so the end of the hold time has to be checked by a timer
+		if (luxFilter.isPending() && !holdCheckPosted) {
+			holdCheckPosted = true;
+			delayer.postDelayed(holdCheck, luxFilter.remaining(now, sett.holdMs));
 		}
 	}
 
