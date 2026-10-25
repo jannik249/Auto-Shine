@@ -23,6 +23,7 @@ public class MySettings {
 	public int holdMs;
 	public int mode;
 	public boolean rotate;
+	public boolean enabled;
 
 	MySettings(Context context) {
 		this.context = context;
@@ -49,6 +50,12 @@ public class MySettings {
 		holdMs = sharedPref.getInt("holdMs", 1500);
 		mode = sharedPref.getInt("mode", Constants.WORK_MODE_ALWAYS);
 		rotate = sharedPref.getBoolean("rotate", true);
+		enabled = sharedPref.getBoolean("enabled", true);
+	}
+
+	// saved on its own, so that saving the other settings in the app never overwrites it
+	public void saveEnabled() {
+		sharedPref.edit().putBoolean("enabled", enabled).commit();
 	}
 
 	public void save() {
