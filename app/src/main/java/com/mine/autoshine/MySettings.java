@@ -19,6 +19,8 @@ public class MySettings {
 	public final int[] bright = new int[MAX_POINTS];
 
 	public int threshold;
+	public int luxPercent;
+	public int holdMs;
 	public int mode;
 	public boolean rotate;
 
@@ -43,6 +45,8 @@ public class MySettings {
 		}
 
 		threshold = sharedPref.getInt("threshold", 0);
+		luxPercent = sharedPref.getInt("luxPercent", 20);
+		holdMs = sharedPref.getInt("holdMs", 1500);
 		mode = sharedPref.getInt("mode", Constants.WORK_MODE_ALWAYS);
 		rotate = sharedPref.getBoolean("rotate", true);
 	}
@@ -60,6 +64,8 @@ public class MySettings {
 			}
 		}
 		editor.putInt("threshold", threshold);
+		editor.putInt("luxPercent", luxPercent);
+		editor.putInt("holdMs", holdMs);
 		editor.putInt("mode", mode);
 		editor.putBoolean("rotate", rotate);
 		editor.commit();
