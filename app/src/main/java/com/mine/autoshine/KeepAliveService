@@ -1,0 +1,40 @@
+package com.mine.autoshine;
+
+import android.accessibilityservice.AccessibilityService;
+import android.content.Intent;
+import android.os.Build;
+import android.view.accessibility.AccessibilityEvent;
+
+/**
+ * Does nothing except existing: Android keeps enabled accessibility services alive much
+ * more reliably than ordinary background services. It runs in the same process as
+ * ShineService, so that process is protected as well. It never reads screen content.
+ */
+public class KeepAliveService extends AccessibilityService {
+
+	@Override
+	protected void onServiceConnected() {
+		super.onServiceConnected();
+
+		// make sure the brightness service is running whenever this service (re)connects
+		try {
+			Intent i = new Intent(this, ShineService.class);
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+				startForegroundService(i);
+			else
+				startService(i);
+		} catch (Exception ignored) {
+		}
+	}
+
+	@Override
+	public void onAccessibilityEvent(AccessibilityEvent event) {
+		// intentionally empty
+	}
+
+	@Override
+	public void onInterrupt() {
+		// intentionally empty
+
+	}
+}
