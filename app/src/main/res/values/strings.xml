@@ -43,4 +43,9 @@
     <string name="max_points">At most %1$d points are allowed</string>
     <string name="settings_saved">Settings saved</string>
     <string name="accessibility_description">Only keeps Auto Shine running in the background so that the brightness control is not stopped by the system. It does not read or change anything on the screen.</string>
+    <string name="tile_on">Brightness %1$d</string>
+    <string name="tile_off">Off</string>
+    <string name="tile_not_running">Not running</string>
+    <string name="auto_on">Auto brightness on</string>
+    <string name="auto_off">Auto brightness off</string>
 </resources>
