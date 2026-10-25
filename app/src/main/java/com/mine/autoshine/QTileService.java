@@ -3,60 +3,73 @@ package com.mine.autoshine;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
+import android.provider.Settings;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
 
 public class QTileService extends TileService {
-	ShineService sService;
-	boolean isBound = false;
-	int storedState = -1;
+	private static final long REFRESH_MS = 1000;
+
+	private ShineService sService;
+	private boolean isBound = false;
+
+	private final Handler handler = new Handler(Looper.getMainLooper());
+
+	// keeps the tile up to date while the quick panel is open
+	private final Runnable refresher = new Runnable() {
+		@Override
+		public void run() {
+			refreshTile();
+			handler.postDelayed(this, REFRESH_MS);
+		}
+	};
 
 	@Override
 	public void onStartListening() {
 		super.onStartListening();
-		Intent intent = new Intent(this, ShineService.class);
 
 		if (!isBound)
-			bindService(intent, connection, 0);
+			bindService(new Intent(this, ShineService.class), connection, 0);
 
-		if (storedState == -1)
-			updateTile(Tile.STATE_UNAVAILABLE);
-
+		refreshTile();
+		handler.removeCallbacks(refresher);
+		handler.postDelayed(refresher, REFRESH_MS);
 	}
 
 	@Override
 	public void onStopListening() {
 		super.onStopListening();
+		handler.removeCallbacks(refresher);
 
 		if (isBound)
 			unbindService(connection);
 
 		isBound = false;
+		sService = null;
 	}
 
 	@Override
 	public void onClick() {
 		super.onClick();
 
-		if (isBound) {
-			storedState = sService.getState();
-			if (storedState == Constants.SERVICE_STATE_PAUSED) {
-				updateTile(Tile.STATE_ACTIVE);
-				storedState = Constants.SERVICE_STATE_ACTIVE;
-			} else {
-				updateTile(Tile.STATE_INACTIVE);
-				if (storedState == Constants.SERVICE_STATE_ACTIVE)
-					storedState = Constants.SERVICE_STATE_PAUSED;
-			}
+		if (isBound && sService != null) {
+			sService.toggleEnabled();
+			refreshTile();
 		} else {
-			updateTile(Tile.STATE_UNAVAILABLE);
+			// service is not running: start it (a tap on the tile is a user action)
+			try {
+				Intent intent = new Intent(this, ShineService.class);
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+					startForegroundService(intent);
+				else
+					startService(intent);
+			} catch (Exception ignored) {
+			}
 		}
-
-		Intent tapIntent = new Intent();
-		tapIntent.putExtra(Constants.SERVICE_INTENT_EXTRA_TAP, 0);
-		tapIntent.setAction(Constants.SERVICE_INTENT_ACTION);
-		sendBroadcast(tapIntent);
 	}
 
 	private final ServiceConnection connection = new ServiceConnection() {
@@ -66,27 +79,40 @@ public class QTileService extends TileService {
 			ShineService.LocalBinder binder = (ShineService.LocalBinder) service;
 			sService = binder.getService();
 			isBound = true;
-
-			storedState = sService.getState();
-
-			if (storedState == Constants.SERVICE_STATE_ACTIVE)
-				updateTile(Tile.STATE_ACTIVE);
-			else
-				updateTile(Tile.STATE_INACTIVE);
+			refreshTile();
 		}
 
 		@Override
 		public void onServiceDisconnected(ComponentName arg0) {
 			sService = null;
 			isBound = false;
-			storedState = -1;
-			updateTile(Tile.STATE_UNAVAILABLE);
+			refreshTile();
 		}
 	};
 
-	private void updateTile(int state) {
+	private void refreshTile() {
 		Tile tile = getQsTile();
-		tile.setState(state);
+		if (tile == null)
+			return;
+
+		if (!isBound || sService == null) {
+			tile.setState(Tile.STATE_UNAVAILABLE);
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+				tile.setSubtitle(getString(R.string.tile_not_running));
+		} else {
+			boolean on = sService.isEnabled();
+			tile.setState(on ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
+
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+				if (on) {
+					int current = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, 0);
+					tile.setSubtitle(getString(R.string.tile_on, current));
+				} else {
+					tile.setSubtitle(getString(R.string.tile_off));
+				}
+			}
+		}
+
 		tile.updateTile();
 	}
 }
